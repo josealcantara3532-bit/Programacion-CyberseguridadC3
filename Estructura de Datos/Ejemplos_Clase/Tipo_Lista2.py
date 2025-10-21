@@ -1,0 +1,10 @@
+lista=[10,20,40]
+print(len(lista))
+lista.append(100)
+print(lista)
+lista.sort()
+print(lista)
+lista.reverse()
+print(lista)
+lista.remove(20)
+print(lista)
