@@ -23,19 +23,19 @@ DB_CONFIG = {
 # -------------------------
 def obtener_conexion():
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        return conn
+        conexion = mysql.connector.connect(**DB_CONFIG)
+        return conexion
     except Error as e:
         messagebox.showerror("DB Error", f"No se pudo conectar a la base de datos:\n{e}")
         return None
 
-def crear_tabla_si_no_existe():
-    conn = obtener_conexion()
-    if conn is None:
+def crear_tabla():
+    conexion = obtener_conexion()
+    if conexion is None:
         return
-    cursor = conn.cursor()
+    cursor = conexion.cursor()
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS equipos (
+    CREATE TABLE (
       id INT AUTO_INCREMENT PRIMARY KEY,
       nombre VARCHAR(100) NOT NULL,
       ip VARCHAR(45) NOT NULL,
@@ -45,9 +45,9 @@ def crear_tabla_si_no_existe():
       fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
-    conn.commit()
+    conexion.commit()
     cursor.close()
-    conn.close()
+    conexion.close()
 
 # -------------------------
 # CLASES (POO)
@@ -68,29 +68,29 @@ class Equipo:
 # -------------------------
 def RegistrarEquipo(equipo: Equipo):
     """Guarda el equipo en la base de datos."""
-    conn = obtener_conexion()
-    if conn is None:
+    conexion = obtener_conexion()
+    if conexion is None:
         return False
     try:
-        cursor = conn.cursor()
+        cursor = conexion.cursor()
         sql = "INSERT INTO equipos (nombre, ip, tipo, ubicacion, estado) VALUES (%s, %s, %s, %s, %s)"
         cursor.execute(sql, equipo.to_tuple())
-        conn.commit()
+        conexion.commit()
         return True
     except Error as e:
         messagebox.showerror("Error SQL", str(e))
         return False
     finally:
         cursor.close()
-        conn.close()
+        conexion.close()
 
 def MostrarInventario(filtro_ip=None):
     """Devuelve lista de equipos (como diccionarios)."""
-    conn = obtener_conexion()
-    if conn is None:
+    conexion = obtener_conexion()
+    if conexion is None:
         return []
     try:
-        cursor = conn.cursor(dictionary=True)
+        cursor = conexion.cursor(dictionary=True)
         if filtro_ip:
             cursor.execute("SELECT * FROM equipos WHERE ip = %s", (filtro_ip,))
         else:
@@ -102,12 +102,12 @@ def MostrarInventario(filtro_ip=None):
         return []
     finally:
         cursor.close()
-        conn.close()
+        conexion.close()
 
 def GenerarAlertas():
     """
     Genera alertas: devuelve lista de equipos con estado != 'online'.
-    (Se puede extender a ping real; por ahora usamos el campo estado).
+    
     """
     inventario = MostrarInventario()
     alertas = []
@@ -125,11 +125,11 @@ def construir_vectores_y_matrices():
     - vectores: lista de nombres de equipos y ubicaciones
     - matrices: matriz simple de ips y estados (lista de listas)
     """
-    inv = MostrarInventario()
-    equipos = [r['nombre'] for r in inv]
-    ubicaciones = list({r['ubicacion'] for r in inv})
+    inventario = MostrarInventario()
+    equipos = [r['nombre'] for r in inventario]
+    ubicaciones = list({r['ubicacion'] for r in inventario})
     # matriz IPs x estados (cada fila: [ip, estado])
-    matriz_ips = [[r['ip'], r['estado']] for r in inv]
+    matriz_ips = [[r['ip'], r['estado']] for r in inventario]
     return equipos, ubicaciones, matriz_ips
 
 # -------------------------
@@ -141,7 +141,7 @@ class AppInventario:
         self.root.title("Sistema Inventario de Equipos de Red")
         self.root.geometry("900x600")
         self.create_widgets()
-        crear_tabla_si_no_existe()
+        crear_tabla()
         self.refrescar_tabla()
 
     def create_widgets(self):
