@@ -1,5 +1,8 @@
-# Sistema de Inventario de Equipos de Red
-# Implementación en Python utilizando POO, MySQL y Tkinter
+"""
+inventario_red.py
+Sistema de Inventario de Equipos de Red
+Requiere: mysql-connector-python, tkinter
+"""
 
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -23,19 +26,19 @@ DB_CONFIG = {
 # -------------------------
 def obtener_conexion():
     try:
-        conexion = mysql.connector.connect(**DB_CONFIG)
-        return conexion
+        conn = mysql.connector.connect(**DB_CONFIG)
+        return conn
     except Error as e:
         messagebox.showerror("DB Error", f"No se pudo conectar a la base de datos:\n{e}")
         return None
 
-def crear_tabla():
-    conexion = obtener_conexion()
-    if conexion is None:
+def crear_tabla_si_no_existe():
+    conn = obtener_conexion()
+    if conn is None:
         return
-    cursor = conexion.cursor()
+    cursor = conn.cursor()
     cursor.execute("""
-    CREATE TABLE (
+    CREATE TABLE IF NOT EXISTS equipos (
       id INT AUTO_INCREMENT PRIMARY KEY,
       nombre VARCHAR(100) NOT NULL,
       ip VARCHAR(45) NOT NULL,
@@ -45,9 +48,9 @@ def crear_tabla():
       fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
-    conexion.commit()
+    conn.commit()
     cursor.close()
-    conexion.close()
+    conn.close()
 
 # -------------------------
 # CLASES (POO)
@@ -68,29 +71,29 @@ class Equipo:
 # -------------------------
 def RegistrarEquipo(equipo: Equipo):
     """Guarda el equipo en la base de datos."""
-    conexion = obtener_conexion()
-    if conexion is None:
+    conn = obtener_conexion()
+    if conn is None:
         return False
     try:
-        cursor = conexion.cursor()
+        cursor = conn.cursor()
         sql = "INSERT INTO equipos (nombre, ip, tipo, ubicacion, estado) VALUES (%s, %s, %s, %s, %s)"
         cursor.execute(sql, equipo.to_tuple())
-        conexion.commit()
+        conn.commit()
         return True
     except Error as e:
         messagebox.showerror("Error SQL", str(e))
         return False
     finally:
         cursor.close()
-        conexion.close()
+        conn.close()
 
 def MostrarInventario(filtro_ip=None):
     """Devuelve lista de equipos (como diccionarios)."""
-    conexion = obtener_conexion()
-    if conexion is None:
+    conn = obtener_conexion()
+    if conn is None:
         return []
     try:
-        cursor = conexion.cursor(dictionary=True)
+        cursor = conn.cursor(dictionary=True)
         if filtro_ip:
             cursor.execute("SELECT * FROM equipos WHERE ip = %s", (filtro_ip,))
         else:
@@ -102,12 +105,12 @@ def MostrarInventario(filtro_ip=None):
         return []
     finally:
         cursor.close()
-        conexion.close()
+        conn.close()
 
 def GenerarAlertas():
     """
     Genera alertas: devuelve lista de equipos con estado != 'online'.
-    
+    (Se puede extender a ping real; por ahora usamos el campo estado).
     """
     inventario = MostrarInventario()
     alertas = []
@@ -125,11 +128,11 @@ def construir_vectores_y_matrices():
     - vectores: lista de nombres de equipos y ubicaciones
     - matrices: matriz simple de ips y estados (lista de listas)
     """
-    inventario = MostrarInventario()
-    equipos = [r['nombre'] for r in inventario]
-    ubicaciones = list({r['ubicacion'] for r in inventario})
+    inv = MostrarInventario()
+    equipos = [r['nombre'] for r in inv]
+    ubicaciones = list({r['ubicacion'] for r in inv})
     # matriz IPs x estados (cada fila: [ip, estado])
-    matriz_ips = [[r['ip'], r['estado']] for r in inventario]
+    matriz_ips = [[r['ip'], r['estado']] for r in inv]
     return equipos, ubicaciones, matriz_ips
 
 # -------------------------
@@ -141,7 +144,7 @@ class AppInventario:
         self.root.title("Sistema Inventario de Equipos de Red")
         self.root.geometry("900x600")
         self.create_widgets()
-        crear_tabla()
+        crear_tabla_si_no_existe()
         self.refrescar_tabla()
 
     def create_widgets(self):
@@ -291,5 +294,3 @@ if __name__ == "__main__":
     root = tk.Tk()
     app = AppInventario(root)
     root.mainloop()
-
-
